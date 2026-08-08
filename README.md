@@ -8,6 +8,25 @@ Cyber$ecu1itY
 
 https://hackviser.com/tactics/pentesting/web/sql-injection
 
+# HOW TO REGISRER A NEW ACOUUNT 
+eg 
+json
+{
+  "username": "admin",
+  "username": "YOUR_USERNAME"
+}
+
+**real**
+curl -s -c cookies.txt -X POST https://challenge-0726.intigriti.io/api/register \
+  -H 'content-type: application/json' \
+  -d '{"username":"YOUR_USERNAME","password":"YOUR_PASSWORD"}'
+
+
+
+
+
+
+
 
 # WEB EXPLOITATION
 1.Testing for SSTI
