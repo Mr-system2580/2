@@ -1,0 +1,25 @@
+import time
+import pyautogui as pg
+import pyperclip
+
+# Ujumbe unaotakiwa kutumwa
+message = hero IAM Mr_ system learn cybersecurity and ethical hacking
+
+print(Fungua chat na u-click ndani ya sehemu ya kuandika ujumbe...)
+print(Unazo sekunde 5 za kujiandaa!)
+time.sleep(5)
+
+# Inarudia mara 50 (Kumbuka: Kwenye kodi hapa imeandikwa range(5), ukitaka mara 50 badili iwe range(50))
+for i in range(100000):
+# Copy ujumbe kwenye clipboard
+pyperclip.copy(message)
+
+# Paste ujumbe (Ctrl + V)
+pg.hotkey('ctrl', 'v')
+time.sleep(0.1)
+
+# Bonyeza Enter kutuma
+pg.press('enter')
+time.sleep(0.2) # Muda mdogo wa kusubiri kati ya kila ujumbe
+
+print(Imemaliza kutuma ujumbe mara 50)
