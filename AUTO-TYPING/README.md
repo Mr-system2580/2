@@ -1,3 +1,4 @@
+# CREATED By Mr_system
 # Auto Message Sender Script
 
 A simple Python automation script designed to automatically paste and send a pre-defined text message multiple times using GUI automation and clipboard manipulation.
@@ -18,28 +19,28 @@ Ensure you have Python installed on your system.
 
 1. **Clone the repository:**
    ```bash
-┌─[live@parrot]─[~]
+
 └──╼ $git clone [https://github.com/Mr-system2580/2/new/main/AUTO-TYPING](https://github.com/Mr-system2580/2/new/main/AUTO-TYPING)
-┌─[live@parrot]─[~]
+
 └──╼ $cd AUTO-TYPING
 
 2 **Install the required dependencies:**
 pip install pyautogui pyperclip
 
-or  ┌─[live@parrot]─[~]
+or
     └──╼ $pip install pyautogui pyperclip --break-system-packages
 or
-┌─[live@parrot]─[~]
+
 └──╼ $python3 -m venv mazingira
-┌─[live@parrot]─[~]
+
 └──╼ $source mazingira/bin/activate
-(mazingira) ┌─[live@parrot]─[~]
+(mazingira) 
 └──╼ $pip install pyautogui pyperclip
 
 # HOE TO USE
 1:Run the script:
 
-(mazingira) ┌─[live@parrot]─[~]
+(mazingira) 
 └──╼ $python AUTO-typing.py
 
 2:Immediately switch to your desired messaging application (e.g., WhatsApp Web, Telegram, Discord).
