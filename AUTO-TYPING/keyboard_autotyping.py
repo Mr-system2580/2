@@ -1,3 +1,6 @@
+#created by  Mr_system
+#categories:web penetester
+
 import time
 import pyautogui as pg
 import pyperclip
